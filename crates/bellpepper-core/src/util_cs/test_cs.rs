@@ -123,8 +123,8 @@ fn _eval_lc2<Scalar: PrimeField>(
 
     for (var, coeff) in terms.iter() {
         let mut tmp = match var.get_unchecked() {
-            Index::Input(index) => inputs[index],
-            Index::Aux(index) => aux[index],
+            Index::Input(index) => inputs[index as usize],
+            Index::Aux(index) => aux[index as usize],
         };
 
         tmp.mul_assign(coeff);
@@ -143,8 +143,8 @@ fn eval_lc<Scalar: PrimeField>(
 
     for (var, coeff) in terms.iter() {
         let mut tmp = match var.get_unchecked() {
-            Index::Input(index) => inputs[index].0,
-            Index::Aux(index) => aux[index].0,
+            Index::Input(index) => inputs[index as usize].0,
+            Index::Aux(index) => aux[index as usize].0,
         };
 
         tmp.mul_assign(coeff);
@@ -270,8 +270,8 @@ impl<Scalar: PrimeField> TestConstraintSystem<Scalar> {
     pub fn set(&mut self, path: &str, to: Scalar) {
         match self.named_objects.get(path) {
             Some(NamedObject::Var(v)) => match v.get_unchecked() {
-                Index::Input(index) => self.inputs[index].0 = to,
-                Index::Aux(index) => self.aux[index].0 = to,
+                Index::Input(index) => self.inputs[index as usize].0 = to,
+                Index::Aux(index) => self.aux[index as usize].0 = to,
             },
             Some(e) => panic!(
                 "tried to set path `{}` to value, but `{:?}` already exists there.",
@@ -311,8 +311,8 @@ impl<Scalar: PrimeField> TestConstraintSystem<Scalar> {
     pub fn get(&mut self, path: &str) -> Scalar {
         match self.named_objects.get(path) {
             Some(NamedObject::Var(v)) => match v.get_unchecked() {
-                Index::Input(index) => self.inputs[index].0,
-                Index::Aux(index) => self.aux[index].0,
+                Index::Input(index) => self.inputs[index as usize].0,
+                Index::Aux(index) => self.aux[index as usize].0,
             },
             Some(e) => panic!(
                 "tried to get value of path `{}`, but `{:?}` exists there (not a variable)",
@@ -384,7 +384,7 @@ impl<Scalar: PrimeField> ConstraintSystem<Scalar> for TestConstraintSystem<Scala
         let index = self.aux.len();
         let path = compute_path(&self.current_namespace, &annotation().into());
         self.aux.push((f()?, path.clone()));
-        let var = Variable::new_unchecked(Index::Aux(index));
+        let var = Variable::new_unchecked(Index::Aux(index.try_into().unwrap()));
         self.set_named_obj(path, NamedObject::Var(var));
 
         Ok(var)
@@ -399,7 +399,7 @@ impl<Scalar: PrimeField> ConstraintSystem<Scalar> for TestConstraintSystem<Scala
         let index = self.inputs.len();
         let path = compute_path(&self.current_namespace, &annotation().into());
         self.inputs.push((f()?, path.clone()));
-        let var = Variable::new_unchecked(Index::Input(index));
+        let var = Variable::new_unchecked(Index::Input(index.try_into().unwrap()));
         self.set_named_obj(path, NamedObject::Var(var));
 
         Ok(var)

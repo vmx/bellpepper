@@ -7,11 +7,11 @@ use bellpepper_core::{ConstraintSystem, Index, LinearCombination, SynthesisError
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct BenchCS<Scalar: PrimeField> {
-    inputs: usize,
-    aux: usize,
-    a: usize,
-    b: usize,
-    c: usize,
+    inputs: u32,
+    aux: u32,
+    a: u32,
+    b: u32,
+    c: u32,
     _e: PhantomData<Scalar>,
 }
 
@@ -20,11 +20,11 @@ impl<Scalar: PrimeField> BenchCS<Scalar> {
         BenchCS::default()
     }
 
-    pub fn num_constraints(&self) -> usize {
+    pub fn num_constraints(&self) -> u32 {
         self.a
     }
 
-    pub fn num_inputs(&self) -> usize {
+    pub fn num_inputs(&self) -> u32 {
         self.inputs
     }
 }
@@ -58,7 +58,7 @@ impl<Scalar: PrimeField> ConstraintSystem<Scalar> for BenchCS<Scalar> {
         // don't invoke f, we just count
         self.aux += 1;
 
-        Ok(Variable::new_unchecked(Index::Aux(self.aux - 1)))
+        Ok(Variable::new_unchecked(Index::Aux((self.aux - 1).try_into().unwrap())))
     }
 
     fn alloc_input<F, A, AR>(&mut self, _: A, _f: F) -> Result<Variable, SynthesisError>
@@ -70,7 +70,7 @@ impl<Scalar: PrimeField> ConstraintSystem<Scalar> for BenchCS<Scalar> {
         // don't invoke f, we just count
         self.inputs += 1;
 
-        Ok(Variable::new_unchecked(Index::Input(self.inputs - 1)))
+        Ok(Variable::new_unchecked(Index::Input((self.inputs - 1).try_into().unwrap())))
     }
 
     fn enforce<A, AR, LA, LB, LC>(&mut self, _: A, _a: LA, _b: LB, _c: LC)

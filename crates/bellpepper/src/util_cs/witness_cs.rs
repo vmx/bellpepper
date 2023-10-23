@@ -74,7 +74,7 @@ where
     {
         self.aux_assignment.push(f()?);
 
-        Ok(Variable(Index::Aux(self.aux_assignment.len() - 1)))
+        Ok(Variable(Index::Aux((self.aux_assignment.len() - 1).try_into().unwrap())))
     }
 
     fn alloc_input<F, A, AR>(&mut self, _: A, f: F) -> Result<Variable, SynthesisError>
@@ -85,7 +85,7 @@ where
     {
         self.input_assignment.push(f()?);
 
-        Ok(Variable(Index::Input(self.input_assignment.len() - 1)))
+        Ok(Variable(Index::Input((self.input_assignment.len() - 1).try_into().unwrap())))
     }
 
     fn enforce<A, AR, LA, LB, LC>(&mut self, _: A, _a: LA, _b: LB, _c: LC)

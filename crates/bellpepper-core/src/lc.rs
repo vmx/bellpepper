@@ -3,6 +3,8 @@ use std::ops::{Add, Sub};
 use ff::PrimeField;
 use serde::{Deserialize, Serialize};
 
+type VarSize = u32;
+
 /// Represents a variable in our constraint system.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Variable(pub Index);
@@ -25,8 +27,8 @@ impl Variable {
 /// auxiliary variable.
 #[derive(Copy, Clone, PartialEq, Debug, Eq, Hash, Serialize, Deserialize)]
 pub enum Index {
-    Input(usize),
-    Aux(usize),
+    Input(VarSize),
+    Aux(VarSize),
 }
 
 /// This represents a linear combination of some variables, with coefficients
@@ -40,9 +42,9 @@ pub struct LinearCombination<Scalar: PrimeField> {
 #[derive(Clone, Debug, PartialEq)]
 struct Indexer<T> {
     /// Stores a list of `T` indexed by the number in the first slot of the tuple.
-    values: Vec<(usize, T)>,
+    values: Vec<(VarSize, T)>,
     /// `(index, key)` of the last insertion operation. Used to optimize consecutive operations
-    last_inserted: Option<(usize, usize)>,
+    last_inserted: Option<(VarSize, VarSize)>,
 }
 
 impl<T> Default for Indexer<T> {
@@ -57,20 +59,20 @@ impl<T> Default for Indexer<T> {
 impl<T> Indexer<T> {
     pub fn from_value(index: usize, value: T) -> Self {
         Indexer {
-            values: vec![(index, value)],
-            last_inserted: Some((0, index)),
+            values: vec![(index.try_into().unwrap(), value)],
+            last_inserted: Some((0, index.try_into().unwrap())),
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&usize, &T)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&VarSize, &T)> + '_ {
         self.values.iter().map(|(key, value)| (key, value))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&mut usize, &mut T)> + '_ {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&mut VarSize, &mut T)> + '_ {
         self.values.iter_mut().map(|(key, value)| (key, value))
     }
 
-    pub fn insert_or_update<F, G>(&mut self, key: usize, insert: F, update: G)
+    pub fn insert_or_update<F, G>(&mut self, key: VarSize, insert: F, update: G)
     where
         F: FnOnce() -> T,
         G: FnOnce(&mut T),
@@ -80,21 +82,21 @@ impl<T> Indexer<T> {
             // they are adding a consecutive values.
             if last_key == key {
                 // update the same key again
-                update(&mut self.values[last_index].1);
+                update(&mut self.values[last_index as usize].1);
                 return;
             } else if last_key + 1 == key {
                 // optimization for follow on updates
                 let i = last_index + 1;
-                if i >= self.values.len() {
+                if i >= self.values.len().try_into().unwrap() {
                     // insert at the end
                     self.values.push((key, insert()));
                     self.last_inserted = Some((i, key));
-                } else if self.values[i].0 == key {
+                } else if self.values[i as usize].0 == key {
                     // update
-                    update(&mut self.values[i].1);
+                    update(&mut self.values[i as usize].1);
                 } else {
                     // insert
-                    self.values.insert(i, (key, insert()));
+                    self.values.insert(i as usize, (key, insert()));
                     self.last_inserted = Some((i, key));
                 }
                 return;
@@ -106,7 +108,7 @@ impl<T> Indexer<T> {
             }
             Err(i) => {
                 self.values.insert(i, (key, insert()));
-                self.last_inserted = Some((i, key));
+                self.last_inserted = Some((i.try_into().unwrap(), key));
             }
         }
     }
@@ -137,12 +139,12 @@ impl<Scalar: PrimeField> LinearCombination<Scalar> {
     pub fn from_coeff(var: Variable, coeff: Scalar) -> Self {
         match var {
             Variable(Index::Input(i)) => Self {
-                inputs: Indexer::from_value(i, coeff),
+                inputs: Indexer::from_value(i as usize, coeff),
                 aux: Default::default(),
             },
             Variable(Index::Aux(i)) => Self {
                 inputs: Default::default(),
-                aux: Indexer::from_value(i, coeff),
+                aux: Indexer::from_value(i as usize, coeff),
             },
         }
     }
@@ -159,12 +161,12 @@ impl<Scalar: PrimeField> LinearCombination<Scalar> {
     }
 
     #[inline]
-    pub fn iter_inputs(&self) -> impl Iterator<Item = (&usize, &Scalar)> + '_ {
+    pub fn iter_inputs(&self) -> impl Iterator<Item = (&VarSize, &Scalar)> + '_ {
         self.inputs.iter()
     }
 
     #[inline]
-    pub fn iter_aux(&self) -> impl Iterator<Item = (&usize, &Scalar)> + '_ {
+    pub fn iter_aux(&self) -> impl Iterator<Item = (&VarSize, &Scalar)> + '_ {
         self.aux.iter()
     }
 
@@ -180,13 +182,13 @@ impl<Scalar: PrimeField> LinearCombination<Scalar> {
     }
 
     #[inline]
-    fn add_assign_unsimplified_input(&mut self, new_var: usize, coeff: Scalar) {
+    fn add_assign_unsimplified_input(&mut self, new_var: VarSize, coeff: Scalar) {
         self.inputs
             .insert_or_update(new_var, || coeff, |val| *val += coeff);
     }
 
     #[inline]
-    fn add_assign_unsimplified_aux(&mut self, new_var: usize, coeff: Scalar) {
+    fn add_assign_unsimplified_aux(&mut self, new_var: VarSize, coeff: Scalar) {
         self.aux
             .insert_or_update(new_var, || coeff, |val| *val += coeff);
     }
@@ -208,12 +210,12 @@ impl<Scalar: PrimeField> LinearCombination<Scalar> {
     }
 
     #[inline]
-    fn sub_assign_unsimplified_input(&mut self, new_var: usize, coeff: Scalar) {
+    fn sub_assign_unsimplified_input(&mut self, new_var: VarSize, coeff: Scalar) {
         self.add_assign_unsimplified_input(new_var, -coeff);
     }
 
     #[inline]
-    fn sub_assign_unsimplified_aux(&mut self, new_var: usize, coeff: Scalar) {
+    fn sub_assign_unsimplified_aux(&mut self, new_var: VarSize, coeff: Scalar) {
         self.add_assign_unsimplified_aux(new_var, -coeff);
     }
 
@@ -247,7 +249,7 @@ impl<Scalar: PrimeField> LinearCombination<Scalar> {
         let one = Scalar::ONE;
 
         for (index, coeff) in self.iter_inputs() {
-            let mut tmp = input_assignment[*index];
+            let mut tmp = input_assignment[*index as usize];
             if coeff != &one {
                 tmp *= coeff;
             }
@@ -255,7 +257,7 @@ impl<Scalar: PrimeField> LinearCombination<Scalar> {
         }
 
         for (index, coeff) in self.iter_aux() {
-            let mut tmp = aux_assignment[*index];
+            let mut tmp = aux_assignment[*index as usize];
             if coeff != &one {
                 tmp *= coeff;
             }

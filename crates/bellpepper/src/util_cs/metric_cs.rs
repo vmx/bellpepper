@@ -164,10 +164,10 @@ impl<Scalar: PrimeField> MetricCS<Scalar> {
 
                 match var.0.get_unchecked() {
                     Index::Input(i) => {
-                        write!(s, "`I{}`", &self.inputs[i]).expect("writing to string never fails");
+                        write!(s, "`I{}`", &self.inputs[i as usize]).expect("writing to string never fails");
                     }
                     Index::Aux(i) => {
-                        write!(s, "`A{}`", &self.aux[i]).expect("writing to string never fails");
+                        write!(s, "`A{}`", &self.aux[i as usize]).expect("writing to string never fails");
                     }
                 }
             }
@@ -229,7 +229,7 @@ impl<Scalar: PrimeField> ConstraintSystem<Scalar> for MetricCS<Scalar> {
         let path = compute_path(&self.current_namespace, &annotation().into());
         self.aux.push(path);
 
-        Ok(Variable::new_unchecked(Index::Aux(self.aux.len() - 1)))
+        Ok(Variable::new_unchecked(Index::Aux((self.aux.len() - 1).try_into().unwrap())))
     }
 
     fn alloc_input<F, A, AR>(&mut self, annotation: A, _f: F) -> Result<Variable, SynthesisError>
@@ -241,7 +241,7 @@ impl<Scalar: PrimeField> ConstraintSystem<Scalar> for MetricCS<Scalar> {
         let path = compute_path(&self.current_namespace, &annotation().into());
         self.inputs.push(path);
 
-        Ok(Variable::new_unchecked(Index::Input(self.inputs.len() - 1)))
+        Ok(Variable::new_unchecked(Index::Input((self.inputs.len() - 1).try_into().unwrap())))
     }
 
     fn enforce<A, AR, LA, LB, LC>(&mut self, annotation: A, a: LA, b: LB, c: LC)
